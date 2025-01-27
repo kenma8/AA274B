@@ -30,7 +30,21 @@ def compute_brute_force_classification(model, image_path, nH=8, nW=8):
     # Extract the window from the image with some amount of padding of your choice
     # Reshape the window to fit the input dimensions of the model and get the predicted output
     # Store the prediction in window_predictions and repeat across all number of windows
-
+    window_height = IMG_SIZE // nH
+    window_width = IMG_SIZE // nW
+    window_predictions = np.zeros((nH, nW, 3))
+    h_pad = window_height // 10
+    w_pad = window_width // 10
+    for i in range(nH):
+        for j in range(nW):
+            window = img[:, max(0, i * window_height - h_pad):min(IMG_SIZE, (i + 1) * window_height + h_pad), 
+                            max(0, j * window_width - w_pad):min(IMG_SIZE, (j + 1) * window_width + h_pad)]
+            window = window.unsqueeze(0)
+            print(window.shape)
+            window = nn.functional.interpolate(window, size=(299, 299), mode="bilinear", align_corners=False)
+            with torch.no_grad():
+                output = model(window)
+                window_predictions[i, j] = output.cpu().numpy()
 
     ######### Your code ends here #########
 
@@ -53,8 +67,17 @@ def compute_convolutional_KxK_classification(model, image_path):
     conv_model.eval()
 
     ######### Your code starts here #########
+    # Pass the image through the convolutional model
+    # Get the output of the convolutional model
+    # Reshape output to (1 * 8 * 8, 2048)
+    # Run output through linear classifier
 
-
+    with torch.no_grad():
+        output = conv_model(img)
+        _, C, K, K = output.shape
+        output = output.view(1 * K * K, C)
+        predictionsKxK = classifier(output)
+        predictionsKxK = predictionsKxK.view(K, K, 3)
 
     ######### Your code ends here #########
 
@@ -83,12 +106,11 @@ def compute_and_plot_saliency(model, image_path):
     # Handle potential multi-channel gradients (e.g., RGB)
     # Create the saliency map by taking the absolute value of the gradients
 
-
-
-
-
-    
-    M = ...
+    logits = model(img)
+    top_class = torch.argmax(logits, dim=1)
+    top_class_score = logits[0, top_class]
+    w = torch.autograd.grad(top_class_score, img)[0]
+    M = w.abs().squeeze(0).max(dim=0)[0]
 
     ######### Your code ends here #########
     

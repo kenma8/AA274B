@@ -8,6 +8,8 @@ from tqdm import tqdm
 
 from utils import generate_problem, visualize_value_function
 
+from value_iteration import value_iteration
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
@@ -36,10 +38,10 @@ def Q_learning(Q_network, reward_fn, is_terminal_fn, X, U, Xp, gam):
 
         # make sure to account for the reward, the terminal state and the
         # discount factor gam
-
-
-
-
+        
+        target_Q = reward_fn(X_, U_) + gam * next_Q * (1 - is_terminal_fn(Xp_).float())
+        l = torch.mean((target_Q - Q) ** 2)
+    
         ######### Your code ends here ###########
 
         # need to regularize the Q-value, because we're training its difference
@@ -50,6 +52,7 @@ def Q_learning(Q_network, reward_fn, is_terminal_fn, X, U, Xp, gam):
     # create the Adam optimizer with pytorch 
     # experiment with different learning rates [1e-4, 1e-3, 1e-2, 1e-1]
 
+    optimizer = optim.Adam(Q_network.parameters(), lr=1e-4)
 
     ######### Your code ends here ###########
 
@@ -58,7 +61,11 @@ def Q_learning(Q_network, reward_fn, is_terminal_fn, X, U, Xp, gam):
         ######### Your code starts here #########
         # apply a single step of gradient descent to the Q_network variables
         # take a look at the torch.optim module
-        pass # Remove this line
+
+        optimizer.zero_grad()
+        l = loss()
+        l.backward()
+        optimizer.step()
 
         ######### Your code ends here ###########
 
@@ -96,6 +103,9 @@ def main():
             # 3. remember that torch.multinomial takes in the probabilities, not the log-probabilities
             # 4. torch.squeeze() can be used to reduce a dimension of the tensor
 
+            weights = Ts[u][x]
+            xp = torch.multinomial(weights, 1).squeeze()
+
             ######### Your code ends here ###########
 
             # convert integer states to a 2D representation using idx2pos
@@ -125,7 +135,20 @@ def main():
     # it needs to output a single value (batch x 1 output) - the Q-value
     # it should have 3 dense layers () with a width of 64 (two hidden 64 neuron embeddings)
 
+    class QNetwork(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.stack = nn.Sequential(
+                nn.Linear(3, 64),
+                nn.ReLU(),
+                nn.Linear(64, 64),
+                nn.ReLU(),
+                nn.Linear(64, 1)
+            )
 
+        def forward(self, x):
+            return self.stack(x)
+        
     ######### Your code ends here ###########
     Q_network = QNetwork().to(device)
 
@@ -151,12 +174,37 @@ def main():
         Q = Q_network(q_input).reshape(-1, 4)
         V = Q.max(-1)[0]
 
+    print(Q.shape)
+    print(V.shape)
+
+    
     # Visualize the result
     plt.figure(120)
-    visualize_value_function(V.cpu().numpy().reshape((n, n)))
+    visualize_value_function(V.cpu().numpy().reshape((n, n)), arrows=True)
     plt.colorbar()
     plt.show()
+    
 
+    # create the terminal mask vector
+    terminal_mask = np.zeros([sdim])
+    terminal_mask[problem["pos2idx"][19, 9]] = 1.0
+    terminal_mask = torch.tensor(terminal_mask, dtype=torch.float32)
+
+    # generate the reward vector
+    reward = np.zeros([sdim, 4])
+    reward[problem["pos2idx"][19, 9], :] = 1.0
+    reward = torch.tensor(reward, dtype=torch.float32)
+
+    V_opt, V_policy = value_iteration(problem, reward, terminal_mask, gam)
+
+    Q_policy = Q.max(-1)[1].cpu().numpy().reshape((n, n))
+
+    # create a binary heatmap plot that shows, for every state, if the approximate Q-network policy agrees or disagrees with the value iteration optimal policy
+    plt.figure(121)
+    plt.imshow((Q_policy == V_policy.cpu().numpy()).reshape((n, n)))
+    plt.title("Q-network policy agreement with value iteration")
+    plt.colorbar()
+    plt.show()
 
 if __name__ == "__main__":
     main()

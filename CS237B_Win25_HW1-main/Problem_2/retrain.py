@@ -29,8 +29,8 @@ def get_bottleneck_dataset(model, img_dir):
     # Pass in the img_directory, the LABELS and teh transform
     # Define the dataloader wrapper and batch_size to 1 and shuffle to False
 
-    train_dataset = ...
-    train_dataloader = ...
+    train_dataset = ImageDataset(img_dir=img_dir, labels=LABELS, transform=transform)
+    train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=False)
 
     ######### Your code ends here ###########
     bottleneck_x_l = []
@@ -49,6 +49,10 @@ def get_bottleneck_dataset(model, img_dir):
         # Get the predicted output from the model
         # Store the prediction and labels in bottleneck_x_l and bottleneck_y_l respectively
 
+        with torch.no_grad():
+            output = model(image)
+            bottleneck_x_l.append(output.cpu().numpy())
+            bottleneck_y_l.append(label.cpu().numpy())
         ######### Your code ends here ###########
 
     bottleneck_x = np.vstack(bottleneck_x_l)
@@ -85,8 +89,13 @@ def retrain(image_dir):
     #   2.3 Define the activation function (retrain activation)
     #   2.4 Create a new model and move it to the right device
     # 3. Define a loss function and a optimization scheme
-
-
+    tensor_size = bottleneck_train_ds[0][0].shape[0]
+    retrain_linear = nn.Linear(tensor_size, len(LABELS))
+    retrain_activation = nn.LogSoftmax(dim=1)
+    retrain_model = nn.Sequential(retrain_linear, retrain_activation)
+    retrain_model.to(device)
+    loss_fn = nn.NLLLoss()
+    optimizer = optim.SGD(retrain_model.parameters(), lr=lr)
     ######### Your code ends here #########
 
     
@@ -112,7 +121,11 @@ def retrain(image_dir):
             # Get the retrain_model outputs from the bottleneck_input data
             # Compute the loss, backpropagate and update the weights
 
-
+            optimizer.zero_grad()
+            outputs = retrain_model(bottleneck_inputs)
+            loss_val = loss_fn(outputs, labels)
+            loss_val.backward()
+            optimizer.step()
 
             ######### Your code ends here #########
 
@@ -131,6 +144,8 @@ def retrain(image_dir):
     # Create a combined model using nn.Sequential 
     # that combines the base_model and retrain_model
     
+    model = nn.Sequential(base_model, retrain_model)
+    model.to(device)
  
     ######### Your code ends here #########        
 

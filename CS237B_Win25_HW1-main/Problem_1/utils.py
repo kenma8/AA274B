@@ -19,7 +19,7 @@ def map_chunked(fn, chunk_size, n, verbose=False):
         ret.append(fn(i1, i2))
     return torch.cat(ret, dim=0)
 
-def visualize_value_function(V):
+def visualize_value_function(V, arrows):
     """
     Visualizes the value function given in V & computes the optimal action,
     visualized as an arrow.
@@ -50,7 +50,8 @@ def visualize_value_function(V):
     u, v = np.reshape(u, (m, n)), np.reshape(v, (m, n))
 
     plt.imshow(V.T, origin="lower")
-    plt.quiver(X, Y, u, v, pivot="middle")
+    if arrows:
+        plt.quiver(X, Y, u, v, pivot="middle")
 
 def make_transition_matrices(m, n, x_eye, sig):
     """

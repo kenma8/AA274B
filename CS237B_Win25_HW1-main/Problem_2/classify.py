@@ -7,7 +7,7 @@ from utils import *
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
-def classify(model, test_dir):
+def classify(model, test_dir, device):
     """
     Classifies all images in test_dir
     :param model: Model to be evaluated
@@ -26,7 +26,27 @@ def classify(model, test_dir):
     # by passing the images into the model and comparing to the true labels
     
     # Also print out the img_paths of the incorrect classifications for future reference
-
+    test_dataset = ImageDataset(img_dir=test_dir, labels=LABELS, transform=test_transform)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    model.eval()
+    num_test = 0
+    correct = 0
+    incorrect_img_paths = []
+    for image, label, img_path in test_dataloader:
+        if image is None:
+            continue
+        image = image.to(device)
+        label = label.to(device)
+        with torch.no_grad():
+            output = model(image)
+            _, predicted = torch.max(output, 1)
+            num_test += 1
+            if predicted == label:
+                correct += 1
+            else:
+                incorrect_img_paths.append(img_path)
+    accuracy = correct / num_test
+    print(incorrect_img_paths)
 
     ######### Your code ends here #########
 

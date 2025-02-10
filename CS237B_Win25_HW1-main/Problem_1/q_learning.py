@@ -38,9 +38,9 @@ def Q_learning(Q_network, reward_fn, is_terminal_fn, X, U, Xp, gam):
 
         # make sure to account for the reward, the terminal state and the
         # discount factor gam
-        
-        target_Q = reward_fn(X_, U_) + gam * next_Q * (1 - is_terminal_fn(Xp_).float())
-        l = torch.mean((target_Q - Q) ** 2)
+
+        target_Q = reward_fn(X_, U_)  + gam * next_Q * (~is_terminal_fn(X_))
+        l = torch.mean((Q - target_Q) ** 2)
     
         ######### Your code ends here ###########
 
@@ -51,8 +51,8 @@ def Q_learning(Q_network, reward_fn, is_terminal_fn, X, U, Xp, gam):
     ######### Your code starts here #########
     # create the Adam optimizer with pytorch 
     # experiment with different learning rates [1e-4, 1e-3, 1e-2, 1e-1]
-
-    optimizer = optim.Adam(Q_network.parameters(), lr=1e-4)
+    learning_rate = 1e-3
+    optimizer = optim.Adam(Q_network.parameters(), lr=learning_rate)
 
     ######### Your code ends here ###########
 
@@ -104,7 +104,7 @@ def main():
             # 4. torch.squeeze() can be used to reduce a dimension of the tensor
 
             weights = Ts[u][x]
-            xp = torch.multinomial(weights, 1).squeeze()
+            xp = torch.multinomial(weights, 1).item()
 
             ######### Your code ends here ###########
 
@@ -137,7 +137,8 @@ def main():
 
     class QNetwork(nn.Module):
         def __init__(self):
-            super().__init__()
+            super(QNetwork, self).__init__()
+
             self.stack = nn.Sequential(
                 nn.Linear(3, 64),
                 nn.ReLU(),
@@ -173,17 +174,12 @@ def main():
     with torch.no_grad():
         Q = Q_network(q_input).reshape(-1, 4)
         V = Q.max(-1)[0]
-
-    print(Q.shape)
-    print(V.shape)
-
     
     # Visualize the result
     plt.figure(120)
-    visualize_value_function(V.cpu().numpy().reshape((n, n)), arrows=True)
+    visualize_value_function(V.cpu().numpy().reshape((n, n)))
     plt.colorbar()
     plt.show()
-    
 
     # create the terminal mask vector
     terminal_mask = np.zeros([sdim])
@@ -197,11 +193,11 @@ def main():
 
     V_opt, V_policy = value_iteration(problem, reward, terminal_mask, gam)
 
-    Q_policy = Q.max(-1)[1].cpu().numpy().reshape((n, n))
+    Q_policy = Q.argmax(-1)
 
     # create a binary heatmap plot that shows, for every state, if the approximate Q-network policy agrees or disagrees with the value iteration optimal policy
     plt.figure(121)
-    plt.imshow((Q_policy == V_policy.cpu().numpy()).reshape((n, n)))
+    plt.imshow((Q_policy == V_policy).cpu().numpy().reshape((n, n)).T, origin="lower")
     plt.title("Q-network policy agreement with value iteration")
     plt.colorbar()
     plt.show()

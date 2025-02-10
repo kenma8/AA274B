@@ -1,0 +1,5 @@
+opencv-python
+cvxpy
+ecos==2.0.14
+scipy>=1.6.0
+numpy<2.0

@@ -12,8 +12,11 @@ import utils
 SIZE_BATCH = 32
 
 # Feel free to experiment with these parameters!
-LEARNING_RATE = 1e-5
+LEARNING_RATE = 1e-3 
 NUM_EPOCHS = 30
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
 
 PATH_CHECKPOINT = os.path.join('trained_models', 'cp-{epoch:03d}.pt')
 DIR_MODEL = 'trained_models'
@@ -23,10 +26,13 @@ def train_model(model, train_loader, optimizer, epoch, writer):
     for batch_idx, batch in enumerate(train_loader):
         optimizer.zero_grad()
         if isinstance(model, BaselineNetwork):
-            images, targets = batch[0], batch[1]
+            images, _, targets = batch
+            images.to(device)
             outputs = model(images)
         else:
             images, angles, targets = batch
+            images.to(device)
+            angles.to(device)
             outputs = model(images, angles)
 
         targets = targets.reshape(-1, 1)
@@ -41,16 +47,22 @@ def train_model(model, train_loader, optimizer, epoch, writer):
 def test_model(model, test_loader, writer, epoch):
     model.eval()
     test_loss = 0
+    num_batches = 0
     with torch.no_grad():
         for batch in test_loader:
             if isinstance(model, BaselineNetwork):
-                images, targets = batch[0], batch[1]
+                images, _, targets = batch
+                images.to(device)
                 outputs = model(images)
             else:
                 images, angles, targets = batch
+                images.to(device)
+                angles.to(device)
                 outputs = model(images, angles)
             test_loss += loss(targets.reshape(-1, 1), outputs).item()
-    test_loss /= len(test_loader.dataset)
+            num_batches += 1
+
+    test_loss /= num_batches
     writer.add_scalar('Loss/test', test_loss, epoch)
     print(f'\nTest set: Average loss: {test_loss:.4f}\n')
 
@@ -76,6 +88,7 @@ if __name__ == '__main__':
         model = AccelerationPredictionNetwork()
         path_model = os.path.join(DIR_MODEL, "trained.pt")
 
+    model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     writer = SummaryWriter(log_dir='train_logs')
 

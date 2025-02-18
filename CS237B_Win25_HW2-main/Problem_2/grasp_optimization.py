@@ -67,10 +67,74 @@ def grasp_optimization(grasp_normals, points, friction_coeffs, wrench_ext):
     cs = []
     ds = []
 
+    x = cp.Variable(M*D + 1)
 
-    x = solve_socp(x, As, bs, cs, ds, F, g, h, verbose=False)
+    F = np.zeros((N, M*D + 1))
+
+    for i in range(M):
+        if D == 2:
+            # friction cone constraints
+            A_i = np.zeros((1, M*D + 1))
+            A_i[0, i*D] = 1
+            As.append(A_i)
+            bs.append(0)
+            c_i = np.zeros(M*D + 1)
+            c_i[i*D + 1] = friction_coeffs[i]
+            cs.append(c_i)
+            ds.append(0)
+            # force balance constraints
+            A_j = np.zeros((2, M*D + 1))
+            A_j[0, i*D] = 1
+            A_j[1, i*D + 1] = 1
+            As.append(A_j)
+            bs.append(0)
+            c_j = np.zeros(M*D + 1)
+            c_j[-1] = 1
+            cs.append(c_j)
+            ds.append(0)
+            # transformation matrix
+            F[0:D, i*D:(i + 1) * D] = transformations[i]
+            F[D:, i*D:(i + 1) * D] = np.cross(points[i],transformations[i])
+
+        if D == 3:
+            # friction cone constraints
+            A_i = np.zeros((2, M*D + 1))
+            A_i[0, i*D] = 1
+            A_i[1, i*D + 1] = 1
+            As.append(A_i)
+            bs.append(0)
+            c_i = np.zeros(M*D + 1)
+            c_i[i*D + 2] = friction_coeffs[i]
+            cs.append(c_i)
+            ds.append(0)
+            # force balance constraints
+            A_j = np.zeros((3, M*D + 1))
+            A_j[0, i*D] = 1
+            A_j[1, i*D + 1] = 1
+            A_j[2, i*D + 2] = 1
+            As.append(A_j)
+            bs.append(0)
+            c_j = np.zeros(M*D + 1)
+            c_j[-1] = 1
+            cs.append(c_j)
+            ds.append(0)
+            # transformation matrix
+            F[0:D, i*D:(i + 1) * D] = transformations[i]
+            F[D:, i*D:(i + 1) * D] = np.cross(points[i],transformations[i].T)
+        
+
+    g = -1 * wrench_ext
+    h = np.zeros(M*D + 1)
+    h[-1] = 1
+
+    solution = solve_socp(x, As, bs, cs, ds, F, g, h, verbose=False)
 
     # TODO: extract the grasp forces from x as a stacked 1D vector
+
+    if solution is None:
+        return None
+    
+    f = solution[:-1]
 
     ########## Your code ends here ##########
 
@@ -102,8 +166,19 @@ def precompute_force_closure(grasp_normals, points, friction_coeffs):
     # TODO: Precompute the optimal forces for the 12 signed unit external
     #       wrenches and store them as rows in the matrix F. This matrix will be
     #       captured by the returned force_closure() function.
+
     F = np.zeros((2*N, M*D))
 
+    for i in range(N):
+        pos_wrench = np.zeros(N)
+        pos_wrench[i] = 1
+        forces = grasp_optimization(grasp_normals, points, friction_coeffs, pos_wrench)
+        F[2 * i] = np.concatenate([f for f in forces])
+
+        neg_wrench = np.zeros(N)
+        neg_wrench[i] = -1
+        forces = grasp_optimization(grasp_normals, points, friction_coeffs, neg_wrench)
+        F[2 * i + 1] = np.concatenate([f for f in forces])
 
     ########## Your code ends here ##########
 
@@ -123,7 +198,11 @@ def precompute_force_closure(grasp_normals, points, friction_coeffs):
         # TODO: Compute the force closure forces as a stacked vector of shape (M*D)
         f = np.zeros(M*D)
 
-  
+        wrench_pos = np.maximum(wrench_ext, 0)
+        wrench_neg = np.maximum(-wrench_ext, 0)
+
+        for i in range(N):
+            f += F[2 * i] * wrench_pos[i] + F[2 * i + 1] * wrench_neg[i]
         ########## Your code ends here ##########
 
         forces = [f_i for f_i in f.reshape(M,D)]

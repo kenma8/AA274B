@@ -33,7 +33,7 @@ def wrench(f, p):
     """
     ########## Your code starts here ##########
     # Hint: you may find cross_matrix(x) defined above helpful. This should be one line of code.
-
+    w = np.hstack((f, cross_matrix(p).dot(f)))
     ########## Your code ends here ##########
 
     return w
@@ -62,16 +62,27 @@ def cone_edges(f, mu):
     D = f.shape[0]
     if D == 2:
         ########## Your code starts here ##########
-        edges = [np.zeros(D)] * 2
-
+        edges = [np.zeros(D) for _ in range(4)]
+        edges[0] = f + mu * np.array([f[1], -f[0]])
+        edges[1] = f - mu * np.array([f[1], -f[0]])
         ########## Your code ends here ##########
 
     # Spatial wrenches
     elif D == 3:
         ########## Your code starts here ##########
-        edges = [np.zeros(D)] * 4
+        f_norm = f / np.linalg.norm(f)
+        if np.allclose(f_norm, np.array([1, 0, 0])) or np.allclose(f_norm, np.array([-1, 0, 0])):
+            u = np.array([0, 1, 0])
+        else:
+            u = np.cross(f_norm, np.array([1, 0, 0]))
+            u /= np.linalg.norm(u)
+        v = np.cross(f_norm, u)
 
-        
+        edges = [np.zeros(D) for _ in range(4)]
+        edges[0] = f_norm + mu * u
+        edges[1] = f_norm - mu * u
+        edges[2] = f_norm + mu * v
+        edges[3] = f_norm - mu * v
         ########## Your code ends here ##########
 
     else:
@@ -94,10 +105,14 @@ def form_closure_program(F):
     # Hint: you may find np.linalg.matrix_rank(F) helpful
     # TODO: Replace the following program (check the cvxpy documentation)
 
-    # k = cp.Variable(1)
-    # objective = cp.Minimize(k)
-    # constraints = [k >= 0]
-
+    # Return false if matrix is not full rank
+    n, j = F.shape
+    if np.linalg.matrix_rank(F) < n:
+        return False
+    
+    k = cp.Variable(j)
+    objective = cp.Minimize(cp.sum(k))
+    constraints = [F @ k == 0, k >= 1]
 
     ########## Your code ends here ##########
 
@@ -120,8 +135,15 @@ def is_in_form_closure(normals, points):
     """
     ########## Your code starts here ##########
     # TODO: Construct the F matrix (not necessarily 6 x 7)
-    F = np.zeros((6,7))
-
+    D = normals[0].shape[0]
+    n = len(normals)
+    if D == 2:
+        F = np.zeros((3,n))
+    elif D == 3:
+        F = np.zeros((6,n))
+    
+    for i in range(n):
+        F[:,i] = wrench(normals[i], points[i])
 
     ########## Your code ends here ##########
 
@@ -142,9 +164,14 @@ def is_in_force_closure(forces, points, friction_coeffs):
     """
     ########## Your code starts here ##########
     # TODO: Call cone_edges() to construct the F matrix (not necessarily 6 x 7)
-    F = np.zeros((6,7))    
-
-
+    D, j = forces[0].shape[0], len(forces)
+    
+    F = []
+    for i in range(j):
+        edges = cone_edges(forces[i], friction_coeffs[i])
+        for edge in edges:
+            F.append(wrench(edge, points[i]))
+    F = np.array(F).T
     ########## Your code ends here ##########
 
     return form_closure_program(F)

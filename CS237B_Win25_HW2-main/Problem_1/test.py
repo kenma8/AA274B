@@ -30,6 +30,30 @@ class TestFormClosure(unittest.TestCase):
                   np.array([1., 2.])]
         self.assertTrue(is_in_form_closure(forces, points))
 
+    def test_planar_form_closure_3(self):
+        forces = [np.array([1., 0.]),
+                  np.array([0., 1.]),
+                  np.array([-np.sqrt(0.5), -np.sqrt(0.5)]),
+                  np.array([-np.sqrt(0.5), -np.sqrt(0.5)]),
+                  np.array([-np.arcsin(np.pi / 8), np.arccos(np.pi / 8)])]
+        points = [np.array([0., 4.]),
+                  np.array([1., 0.]),
+                  np.array([1., 4.]),
+                  np.array([4., 1.]),
+                  np.array([5., 0.])]
+        self.assertTrue(is_in_form_closure(forces, points))
+
+    def test_planar_form_closure_4(self):
+        forces = [np.array([0., 1.]),
+                  np.array([-np.sqrt(0.5), -np.sqrt(0.5)]),
+                  np.array([-np.sqrt(0.5), -np.sqrt(0.5)]),
+                  np.array([-np.arcsin(np.pi / 8), np.arccos(np.pi / 8)])]
+        points = [np.array([1., 0.]),
+                  np.array([1., 4.]),
+                  np.array([4., 1.]),
+                  np.array([5., 0.])]
+        self.assertFalse(is_in_form_closure(forces, points))
+
     def test_spatial_form_closure_1(self):
         # Grasping a cube
         forces = [np.array([0., 0., 1.]),

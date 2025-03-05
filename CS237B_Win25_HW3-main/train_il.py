@@ -20,7 +20,16 @@ class NN(nn.Module):
         #         - nn.init.xavier_uniform_
         #         - nn.init.kaiming_uniform_
 
+        self.fc1 = nn.Linear(in_size, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, out_size)
 
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.xavier_uniform_(self.fc3.weight)
+        nn.init.constant_(self.fc1.bias, 0)
+        nn.init.constant_(self.fc2.bias, 0)
+        nn.init.constant_(self.fc3.bias, 0)
         
         ########## Your code ends here ##########
 
@@ -29,7 +38,10 @@ class NN(nn.Module):
         ######### Your code starts here #########
         # Perform a forward-pass of the network. 
         # x is a (?,|O|) tensor that keeps a batch of observations
-\
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
         ########## Your code ends here ##########
 
 
@@ -41,6 +53,11 @@ def loss_fn(y_est, y):
     # - y is the actions the expert took for the corresponding batch of observations
     # At the end your code should return the scalar loss value.
     # HINT: Remember, you can penalize steering (0th dimension) and throttle (1st dimension) unequally
+    
+    # L2 loss 
+    steering_loss = torch.sqrt(torch.sum((y_est[:,0] - y[:,0])**2))
+    throttle_loss = torch.sqrt(torch.sum((y_est[:,1] - y[:,1])**2))
+    return steering_loss + throttle_loss
 
     ########## Your code ends here ##########
     
@@ -85,8 +102,13 @@ def nn_train(data, args):
                 # - y_batch is the actions the expert took for the corresponding batch of observations
                 # At the end your code should return the scalar loss value.
     
-    
 
+                y_est = model(x_batch)
+                loss = loss_fn(y_est, y_batch)
+                train_loss += loss.item()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
 
     

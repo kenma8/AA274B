@@ -55,7 +55,7 @@ def loss_fn(y_est, y):
     # HINT: Remember, you can penalize steering (0th dimension) and throttle (1st dimension) unequally
     
     # L2 loss 
-    steering_loss = torch.sqrt(torch.sum((y_est[:,0] - y[:,0])**2))
+    steering_loss = torch.sum(torch.abs((y_est[:,0] - y[:,0])))
     throttle_loss = torch.sqrt(torch.sum((y_est[:,1] - y[:,1])**2))
     return steering_loss + throttle_loss
 
@@ -102,7 +102,6 @@ def nn_train(data, args):
                 # - y_batch is the actions the expert took for the corresponding batch of observations
                 # At the end your code should return the scalar loss value.
     
-
                 y_est = model(x_batch)
                 loss = loss_fn(y_est, y_batch)
                 train_loss += loss.item()
@@ -110,8 +109,6 @@ def nn_train(data, args):
                 loss.backward()
                 optimizer.step()
 
-
-    
                 ########## Your code ends here ##########
                 count += 1
 

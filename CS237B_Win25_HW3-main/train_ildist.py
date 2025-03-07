@@ -20,9 +20,16 @@ class NN(nn.Module):
         #         - nn.init.xavier_uniform_()
         #         - nn.init.kaiming_uniform_()
 
+        self.fc1 = nn.Linear(in_size, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 5)
 
-
-
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.xavier_uniform_(self.fc3.weight)
+        nn.init.constant_(self.fc1.bias, 0)
+        nn.init.constant_(self.fc2.bias, 0)
+        nn.init.constant_(self.fc3.bias, 0)
 
         ########## Your code ends here ##########
 
@@ -32,8 +39,11 @@ class NN(nn.Module):
         # We want to perform a forward-pass of the network.
         # x is a (?, |O|) tensor that keeps a batch of observations
 
-
-
+        x = F.tanh(self.fc1(x))
+        x = F.tanh(self.fc2(x))
+        x = self.fc3(x)
+        
+        return x
         ########## Your code ends here ##########
 
 
@@ -58,11 +68,20 @@ def loss_fn(y_est, y):
     #       - torch.bmm()
     #       - F.softplus()
     
-    
+    mu = y_est[:, :2]
+    c = y_est[:, 2:]
 
+    A = torch.zeros((y_est.shape[0], 2, 2))
+    A[:, 0, 0] = F.softplus(c[:, 0])
+    A[:, 1, 1] = F.softplus(c[:, 2])
+    A[:, 1, 0] = c[:, 1]
 
+    cov = torch.bmm(A, A.transpose(1, 2))
 
+    dist = D.MultivariateNormal(mu, cov)
 
+    loss = -dist.log_prob(y)
+    return loss.mean()
     ########## Your code ends here ##########
 
 
@@ -98,9 +117,12 @@ def train_model(data, args):
             ######### Your code starts here #########
             # HINT: This section is very similar to the section in train_il.py
 
-
-
-
+            y_est = model(x_batch)
+            loss = loss_fn(y_est, y_batch)
+            train_loss += loss.item()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
             ########## Your code ends here ##########
             count += 1

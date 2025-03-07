@@ -22,10 +22,31 @@ class NN(nn.Module):
         #         - nn.init.kaiming_uniform_()
         # HINT: you can call self.modules() to loop through all the layers of the network in the class for initialization
 
+        self.fc1 = nn.Linear(in_size, 64)
+        self.fc2 = nn.Linear(64, 64)
 
+        self.left = nn.Sequential(
+            # nn.Linear(64, 32),
+            # nn.Tanh(),
+            nn.Linear(64, out_size)
+        )
 
+        self.straight = nn.Sequential(
+            # nn.Linear(64, 32),
+            # nn.Tanh(),
+            nn.Linear(64, out_size)
+        )
 
+        self.right = nn.Sequential(
+            # nn.Linear(64, 32),
+            # nn.Tanh(),
+            nn.Linear(64, out_size)
+        )
 
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
 
         ########## Your code ends here ##########
 
@@ -42,12 +63,20 @@ class NN(nn.Module):
         # HINT 1: Looping over all data samples may not be the most computationally efficient way of doing branching
         # HINT 2: While implementing this, we found using masks useful. This is not necessarily a requirement though.
         
+        x = torch.tanh(self.fc1(x))
+        x = torch.tanh(self.fc2(x))
 
+        mask_left = (u == 0)
+        mask_straight = (u == 1)
+        mask_right = (u == 2)
 
+        out = torch.zeros(x.shape[0], 2)
 
+        out[mask_left] = self.left(x[mask_left])
+        out[mask_straight] = self.straight(x[mask_straight])
+        out[mask_right] = self.right(x[mask_right])
 
-
-
+        return out
 
         ########## Your code ends here ##########
 
@@ -61,9 +90,9 @@ def loss_fn(y_est, y):
     # At the end your code should return the scalar loss value.
     # HINT: Remember, you can penalize steering (0th dimension) and throttle (1st dimension) unequally
 
-
-
-
+    steering_loss = torch.sum(torch.abs((y_est[:,0] - y[:,0])))
+    throttle_loss = torch.sqrt(torch.sum((y_est[:,1] - y[:,1])**2))
+    return steering_loss + throttle_loss
 
     ########## Your code ends here ##########
    
@@ -104,11 +133,12 @@ def train_model(data, args):
             
             ######### Your code starts here #########
 
-            
-
-
-
-
+            y_est = model(x_batch, u_batch)
+            loss = loss_fn(y_est, y_batch)
+            epoch_loss += loss.item()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
             ########## Your code ends here ##########
             count += 1

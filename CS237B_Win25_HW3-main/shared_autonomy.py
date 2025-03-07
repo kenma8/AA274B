@@ -69,15 +69,17 @@ if __name__ == '__main__':
             # At the end, your code should set a_robot variable as a 1x2 numpy array that consists of steering and throttle values, respectively
             # HINT: You can use np.clip to threshold a_robot with respect to the magnitude constraints
            
+            P_g = np.mean(scores, axis=0)
 
+            a_robot = np.zeros(2)
+            for goal_id in range(len(goals[scenario_name])):
+                network = nn_models[goals[scenario_name][goal_id]]
+                y = network(obs_tensor).detach().numpy()[0]
+                mu = y[:2]
+                term = optimal_action[goals[scenario_name][goal_id]] - mu
+                a_robot += P_g[goal_id] * term[0]
 
-
-
-
-
-
-
-            a_robot = None # Replace this line!
+            a_robot = np.clip(a_robot, [-max_steering, -max_throttle], [max_steering, max_throttle])
             ########## Your code ends here ##########
             
             a_human = np.array([interactive_policy.steering, optimal_action[goals[scenario_name][0]][0,1]]).reshape(1,-1)
@@ -96,12 +98,21 @@ if __name__ == '__main__':
 
             probs = []
 
+            action_probs = []
+            probs_sum = 0
 
-
-
-
-
-
+            for goal in goals[scenario_name]:
+                network = nn_models[goal]
+                y = network(obs_tensor).detach().numpy()[0]
+                mean = y[:2]
+                A = np.array([[y[2], 0], [y[3], y[4]]])
+                cov_mat = A @ A.T
+                dist = multivariate_normal(mean=mean, cov=cov_mat)
+                prob = dist.pdf(a_human)
+                probs_sum += prob
+                action_probs.append(prob)
+            for i in range(len(action_probs)):
+                probs.append(action_probs[i] / (probs_sum))
 
             ########## Your code ends here ##########
 

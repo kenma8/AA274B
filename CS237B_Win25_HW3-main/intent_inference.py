@@ -66,9 +66,24 @@ if __name__ == '__main__':
             # The code should set a variable called "probs" which is a list keeping the probabilities associated with goals[scenario_name], respectively.
             # HINT: multivariate_normal from scipy.stats might be useful, which is already imported. Or you can implement it yourself, too.
             probs = []
+            action_probs = []
+            probs_sum = 0
 
+            o = torch.tensor(obs, dtype=torch.float32).to(device)
+            a = torch.tensor(action, dtype=torch.float32).to(device)
 
-            
+            for goal in goals[scenario_name]:
+                network = nn_models[goal]
+                y = network(o).detach().numpy()[0]
+                mean = y[:2]
+                A = np.array([[y[2], 0], [y[3], y[4]]])
+                cov_mat = A @ A.T
+                dist = multivariate_normal(mean=mean, cov=cov_mat)
+                prob = dist.pdf(a)
+                probs_sum += prob
+                action_probs.append(prob)
+            for i in range(len(action_probs)):
+                probs.append(action_probs[i] / (probs_sum))
 
             ########## Your code ends here ##########
             
